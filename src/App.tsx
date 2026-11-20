@@ -90,6 +90,7 @@ import {
   calculateBoxEstimation,
   evaluateLogoFormula,
   getUniqueMaterialNames,
+  normalizeMaterialKey,
   parseRupiahNumber,
 } from './utils/boxCalculator';
 
