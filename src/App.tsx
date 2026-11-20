@@ -316,7 +316,16 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY_BAHAN_DASAR);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const existingIds = new Set(parsed.map((item: MaterialItem) => item.id));
+          const missing = INITIAL_BAHAN_DASAR_DATA.filter((item) => !existingIds.has(item.id));
+          if (missing.length > 0) {
+            const merged = [...parsed, ...missing];
+            localStorage.setItem(STORAGE_KEY_BAHAN_DASAR, JSON.stringify(merged));
+            return merged;
+          }
+          return parsed;
+        }
       }
     } catch {
       // Fallback
@@ -588,6 +597,8 @@ export default function App() {
       customL: string;
     }[]
   >([]);
+  // State: Magnet (hanya tampil jika model = Box Magnet)
+  const [calcMagnetTitik, setCalcMagnetTitik] = useState<number>(0);
   const [calcQty, setCalcQty] = useState<string>('0');
   const [calcError, setCalcError] = useState<string>('');
   const [calcResult, setCalcResult] = useState<BoxCalculationResult | null>(null);
@@ -596,6 +607,10 @@ export default function App() {
   const uniqueBahanDasarNames = useMemo(
     () => getUniqueMaterialNames(bahanDasarItems),
     [bahanDasarItems]
+  );
+  const uniqueBoardMaterialNames = useMemo(
+    () => uniqueBahanDasarNames.filter((name) => normalizeMaterialKey(name) !== 'magnet'),
+    [uniqueBahanDasarNames]
   );
   const uniqueKertasStdNames = useMemo(
     () => getUniqueMaterialNames(kertasStdItems),
@@ -729,14 +744,15 @@ export default function App() {
     setCalcP('0');
     setCalcL('0');
     setCalcT('0');
-    setCalcBahanBodyName(uniqueBahanDasarNames[0] || '');
-    setCalcBahanTutupName(uniqueBahanDasarNames[0] || '');
+    setCalcBahanBodyName(uniqueBoardMaterialNames[0] || uniqueBahanDasarNames[0] || '');
+    setCalcBahanTutupName(uniqueBoardMaterialNames[0] || uniqueBahanDasarNames[0] || '');
     setCalcLBodyDalamName(uniqueKertasStdNames[0] || '');
     setCalcLBodyLuarName(uniqueKertasStdNames[1] || uniqueKertasStdNames[0] || '');
     setCalcLTutupDalamName(uniqueKertasStdNames[0] || '');
     setCalcLTutupLuarName(uniqueKertasStdNames[1] || uniqueKertasStdNames[0] || '');
     setCalcInnerboxList([]);
     setCalcLogoList([]);
+    setCalcMagnetTitik(0);
     setCalcQty('0');
     setCalcError('');
     setSelectedPrintIndex(undefined);
@@ -782,6 +798,7 @@ export default function App() {
             customL: parseFloat((item.customL || '0').replace(',', '.')) || 0,
           })),
         selectedPrintIndex: overridePrintIndex,
+        magnetTitik: calcMagnetTitik,
       },
       {
         formulaItems,
@@ -2147,7 +2164,17 @@ FYI
                     </label>
                     <select
                       value={calcModelId}
-                      onChange={(e) => setCalcModelId(e.target.value)}
+                      onChange={(e) => {
+                        const newModelId = e.target.value;
+                        setCalcModelId(newModelId);
+                        const selectedModel = formulaItems.find((m) => m.id === newModelId);
+                        const isMagnet =
+                          selectedModel?.id === 'rumus-2' ||
+                          (selectedModel?.modelBox || '').toLowerCase().includes('magnet');
+                        if (isMagnet && calcMagnetTitik === 0) {
+                          setCalcMagnetTitik(1);
+                        }
+                      }}
                       className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#081610] px-3 py-1.5 text-xs font-medium text-[#F4F1EA] focus:border-[#D4AF37] focus:outline-none transition-colors cursor-pointer"
                     >
                       <option value="">-- Pilih Model Box --</option>
@@ -2242,7 +2269,7 @@ FYI
                         className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#081610] px-2.5 py-1.5 text-xs text-[#F4F1EA] focus:border-[#D4AF37] focus:outline-none transition-colors cursor-pointer"
                       >
                         <option value="">-- Pilih Bahan Body --</option>
-                        {uniqueBahanDasarNames.map((name) => (
+                        {uniqueBoardMaterialNames.map((name) => (
                           <option key={name} value={name}>
                             {name}
                           </option>
@@ -2260,7 +2287,7 @@ FYI
                         className="w-full rounded-lg border border-[#D4AF37]/25 bg-[#081610] px-2.5 py-1.5 text-xs text-[#F4F1EA] focus:border-[#D4AF37] focus:outline-none transition-colors cursor-pointer"
                       >
                         <option value="">-- Pilih Bahan Tutup / Tidak Pakai --</option>
-                        {uniqueBahanDasarNames.map((name) => (
+                        {uniqueBoardMaterialNames.map((name) => (
                           <option key={name} value={name}>
                             {name}
                           </option>
@@ -2643,6 +2670,84 @@ FYI
                     )}
                   </div>
 
+                  {/* 6C. Magnet (Hanya tampil jika model = Box Magnet) */}
+                  {(() => {
+                    const selectedModel = formulaItems.find((m) => m.id === calcModelId);
+                    const isMagnetModel =
+                      selectedModel?.id === 'rumus-2' ||
+                      (selectedModel?.modelBox || '').toLowerCase().includes('magnet');
+                    if (!isMagnetModel) return null;
+
+                    const magnetBahan = bahanDasarItems.find(
+                      (b) => normalizeMaterialKey(b.namaBahan) === 'magnet'
+                    );
+                    const magnetRate = magnetBahan ? parseRupiahNumber(magnetBahan.hargaLembar) || 1500 : 1500;
+                    const parsedQty = parseInt((calcQty || '0').replace(/[^0-9]/g, ''), 10) || 0;
+
+                    return (
+                      <div className="rounded-lg border border-[#D4AF37]/20 bg-[#081610]/70 p-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-wider text-[#E5C158]">
+                              Magnet
+                            </label>
+                            <p className="text-[10px] text-[#8FA599]">
+                              Pilih jumlah titik magnet untuk model Box Magnet ({formatRupiah(magnetRate)}/pcs per titik).
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-2 flex items-center gap-2">
+                          <label className="text-[11px] font-medium text-[#B8C7BE]">Jumlah Titik:</label>
+                          <div className="flex gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => setCalcMagnetTitik(0)}
+                              className={`rounded-md px-3 py-1.5 text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                calcMagnetTitik === 0
+                                  ? 'bg-[#D4AF37] text-[#07140F] border-[#D4AF37]'
+                                  : 'bg-[#0C2017] text-[#B8C7BE] border-[#D4AF37]/25 hover:border-[#D4AF37]/50 hover:text-[#F3D77D]'
+                              }`}
+                            >
+                              Tanpa Magnet
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCalcMagnetTitik(1)}
+                              className={`rounded-md px-3 py-1.5 text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                calcMagnetTitik === 1
+                                  ? 'bg-[#D4AF37] text-[#07140F] border-[#D4AF37]'
+                                  : 'bg-[#0C2017] text-[#B8C7BE] border-[#D4AF37]/25 hover:border-[#D4AF37]/50 hover:text-[#F3D77D]'
+                              }`}
+                            >
+                              1 Titik
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCalcMagnetTitik(2)}
+                              className={`rounded-md px-3 py-1.5 text-[11px] font-semibold border transition-colors cursor-pointer ${
+                                calcMagnetTitik === 2
+                                  ? 'bg-[#D4AF37] text-[#07140F] border-[#D4AF37]'
+                                  : 'bg-[#0C2017] text-[#B8C7BE] border-[#D4AF37]/25 hover:border-[#D4AF37]/50 hover:text-[#F3D77D]'
+                              }`}
+                            >
+                              2 Titik
+                            </button>
+                          </div>
+                        </div>
+
+                        {calcMagnetTitik > 0 && (
+                          <div className="mt-1.5 rounded-md border border-[#D4AF37]/15 bg-[#081610] px-2.5 py-1.5 text-[11px] text-[#B8C7BE] font-mono-tabular">
+                            <span className="font-semibold text-[#E5C158]">
+                              Magnet {calcMagnetTitik} Titik
+                            </span>{' '}
+                            : {calcMagnetTitik} titik x {formatRupiah(magnetRate)} x {parsedQty > 0 ? `${parsedQty} pcs = ${formatRupiah(calcMagnetTitik * magnetRate * parsedQty)}` : 'Qty pcs'}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+
                   {/* 7. Qty (Input Angka Manual) */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -2900,6 +3005,15 @@ FYI
                           ))}
                         </div>
                       )}
+
+                      {calcResult.magnetTitik > 0 && calcResult.magnetLine && (
+                        <div className="space-y-0.5">
+                          <div className="font-semibold text-[11px] text-[#F3D77D]">Magnet</div>
+                          <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6]">
+                            {calcResult.magnetLine}
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* 2. Estimasi Rincian Biaya */}
@@ -2962,6 +3076,11 @@ FYI
                             - <span className="font-semibold text-[#E5C158]">{formatRupiah(logoItem.cost)}</span> : {logoItem.label}
                           </li>
                         ))}
+                        {calcResult.magnetCost > 0 && (
+                          <li>
+                            - <span className="font-semibold text-[#E5C158]">{formatRupiah(calcResult.magnetCost)}</span> : Magnet ({calcResult.magnetTitik} titik × {formatRupiah(Math.round(calcResult.magnetCost / (calcResult.magnetTitik * calcResult.qty)))} × {calcResult.qty} pcs)
+                          </li>
+                        )}
                       </ul>
 
                       <div className="pt-2 border-t border-[#D4AF37]/20 flex items-center justify-between font-mono-tabular text-xs font-bold text-[#E5C158]">

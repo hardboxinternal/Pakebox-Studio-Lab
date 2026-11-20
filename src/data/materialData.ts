@@ -30,6 +30,12 @@ export const INITIAL_BAHAN_DASAR_DATA: MaterialItem[] = [
     ukuranPlano: '74 x 64',
     hargaLembar: 'Rp 5.000',
   },
+  {
+    id: 'bd-4',
+    namaBahan: 'Magnet',
+    ukuranPlano: '1 cm',
+    hargaLembar: 'Rp 1.500',
+  },
 ];
 
 export const INITIAL_KERTAS_STD_DATA: MaterialItem[] = [

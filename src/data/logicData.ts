@@ -131,6 +131,17 @@ export const INITIAL_LOGIKA_MODEL_DATA: LogicRuleItem[] = [
     aksi: 'Hitung biaya per potongan × qty, bandingkan dengan Sambungan 3 dan Utuh',
   },
   {
+    id: 'lm-7',
+    namaAturan: 'Biaya Magnet – Model Box Magnet (Model Buku)',
+    kondisiTrigger:
+      'Model Box = Box Magnet (Model Buku)',
+    rumusTindakan:
+      'Biaya Magnet = Jumlah Titik Magnet x Harga Magnet per pcs x Qty',
+    keterangan:
+      'Jika model box yang dipilih adalah Box Magnet (Model Buku), maka biaya magnet otomatis masuk ke perhitungan modal. User memilih jumlah titik magnet (1 titik atau 2 titik). Harga magnet per pcs diambil dari Data Bahan Dasar → Magnet (Rp 1.500/pcs). Biaya = titik x Rp 1.500 x Qty.',
+    aksi: 'Hitung Biaya Magnet & Masukkan ke Modal',
+  },
+  {
     id: 'lm-6',
     namaAturan: 'Rumus Sambungan Khusus (Magnet Model)',
     kondisiTrigger:

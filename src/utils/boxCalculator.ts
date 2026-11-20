@@ -40,6 +40,8 @@ export interface CalculatorInputState {
   innerboxNames: string[];
   logos?: SelectedLogoInput[];
   selectedPrintIndex?: number;
+  /** Jumlah titik magnet: 0 = tanpa magnet, 1 = 1 titik, 2 = 2 titik */
+  magnetTitik?: number;
 }
 
 export interface PrintComparisonOption {
@@ -130,6 +132,10 @@ export interface BoxCalculationResult {
   innerboxCost: number;
   logoCost: number;
   logoCostItems: LogoBreakdownItem[];
+  /** Biaya magnet (jumlah titik x harga magnet x qty) */
+  magnetTitik: number;
+  magnetCost: number;
+  magnetLine: string;
   totalBiayaProduksi: number;
   hargaModalPerPcs: number;
   marginPercent: number;
@@ -768,13 +774,13 @@ export function calculateBoxEstimation(
   const boardCost = boardBodyCost + boardTutupCost;
   const boardLabel =
     boardBodyPick &&
-    boardTutupPick &&
-    normalizeMaterialKey(boardBodyPick.item.namaBahan) !==
+      boardTutupPick &&
+      normalizeMaterialKey(boardBodyPick.item.namaBahan) !==
       normalizeMaterialKey(boardTutupPick.item.namaBahan)
       ? `${boardBodyPick.item.namaBahan} & ${boardTutupPick.item.namaBahan}`
       : boardBodyPick?.item.namaBahan ||
-        boardTutupPick?.item.namaBahan ||
-        'Karton / Board';
+      boardTutupPick?.item.namaBahan ||
+      'Karton / Board';
 
   // Lapisan Dalam (Body & Tutup) - pilih otomatis ukuran plano terbaik
   const dalamBodyPick = pickCheapestMaterialVariant(
@@ -905,19 +911,19 @@ export function calculateBoxEstimation(
     // =====================================================================
     const outerBodyPick = hasOuterBody
       ? pickCheapestMaterialVariant(
-          outerBodyVariants.filter((v) => parseRupiahNumber(v.hargaLembar) > 0),
-          cutLuarBody.p,
-          cutLuarBody.l,
-          safeQty
-        )
+        outerBodyVariants.filter((v) => parseRupiahNumber(v.hargaLembar) > 0),
+        cutLuarBody.p,
+        cutLuarBody.l,
+        safeQty
+      )
       : null;
     const outerTutupPick = hasOuterTutup
       ? pickCheapestMaterialVariant(
-          outerTutupVariants.filter((v) => parseRupiahNumber(v.hargaLembar) > 0),
-          cutLuarTutup.p,
-          cutLuarTutup.l,
-          safeQty
-        )
+        outerTutupVariants.filter((v) => parseRupiahNumber(v.hargaLembar) > 0),
+        cutLuarTutup.p,
+        cutLuarTutup.l,
+        safeQty
+      )
       : null;
 
     const outerBodyPaperCost = outerBodyPick?.cost || 0;
@@ -944,8 +950,8 @@ export function calculateBoxEstimation(
         hasOuterBody && hasOuterTutup
           ? `Body ${bodyFitInfo}, Tutup ${tutupFitInfo}`
           : hasOuterBody
-          ? `Body ${bodyFitInfo}`
-          : `Tutup ${tutupFitInfo}`,
+            ? `Body ${bodyFitInfo}`
+            : `Tutup ${tutupFitInfo}`,
       kebutuhanLembar: `${totalSheets} lembar plano ${planoSizeLabel} cm`,
       totalCost: totalPaperOnlyCost,
       cetakCost: 0,
@@ -1280,16 +1286,16 @@ export function calculateBoxEstimation(
           const bodyClicks =
             bodyPieces && isValid
               ? bodyPieces.pieces.reduce(
-                  (sum, pc) => sum + calcPieceClicks(pc),
-                  0
-                )
+                (sum, pc) => sum + calcPieceClicks(pc),
+                0
+              )
               : 0;
           const tutupClicks =
             tutupPieces && isValid
               ? tutupPieces.pieces.reduce(
-                  (sum, pc) => sum + calcPieceClicks(pc),
-                  0
-                )
+                (sum, pc) => sum + calcPieceClicks(pc),
+                0
+              )
               : 0;
 
           const totalClicks = bodyClicks + tutupClicks;
@@ -1309,19 +1315,19 @@ export function calculateBoxEstimation(
 
           const bodyLineDetail = bodyPieces
             ? bodyPieces.pieces
-                .map(
-                  (pc) =>
-                    `${pc.p.toFixed(1)}×${pc.l.toFixed(1)} cm (${pc.qty} lbr)`
-                )
-                .join(' + ')
+              .map(
+                (pc) =>
+                  `${pc.p.toFixed(1)}×${pc.l.toFixed(1)} cm (${pc.qty} lbr)`
+              )
+              .join(' + ')
             : '-';
           const tutupLineDetail = tutupPieces
             ? tutupPieces.pieces
-                .map(
-                  (pc) =>
-                    `${pc.p.toFixed(1)}×${pc.l.toFixed(1)} cm (${pc.qty} lbr)`
-                )
-                .join(' + ')
+              .map(
+                (pc) =>
+                  `${pc.p.toFixed(1)}×${pc.l.toFixed(1)} cm (${pc.qty} lbr)`
+              )
+              .join(' + ')
             : '-';
 
           return {
@@ -1877,6 +1883,25 @@ export function calculateBoxEstimation(
   // Ongkos Pond / Druk (Aktif jika Qty >= 100 pcs)
   const ongkosPondCost = isPondActive ? 100000 : 0;
 
+  // Magnet Calculation: Aktif jika model = Box Magnet (Model Buku)
+  // Harga magnet per pcs diambil dari data bahan dasar "Magnet"
+  const isModelMagnet =
+    model?.id === 'rumus-2' ||
+    (model?.modelBox || '').toLowerCase().includes('magnet');
+  const magnetTitik = isModelMagnet ? (input.magnetTitik || 0) : 0;
+
+  let magnetPricePerPcs = 1500; // default Rp 1.500
+  const magnetBahanItem = databases.bahanDasarItems.find(
+    (b) => normalizeMaterialKey(b.namaBahan) === 'magnet'
+  );
+  if (magnetBahanItem) {
+    magnetPricePerPcs = parseRupiahNumber(magnetBahanItem.hargaLembar) || 1500;
+  }
+  const magnetCost = magnetTitik * magnetPricePerPcs * safeQty;
+  const magnetLine = magnetTitik > 0
+    ? `Magnet : ${magnetTitik} titik x Rp ${magnetPricePerPcs.toLocaleString('id-ID')} x ${safeQty} pcs = Rp ${magnetCost.toLocaleString('id-ID')}`
+    : '';
+
   // STEP 8: Gunakan hasil pilihan otomatis tersebut untuk rincian biaya dan harga modal per pcs
   const cetakCost = chosenPrint.cetakCost;
   const laminasiCost = chosenPrint.laminasiCost;
@@ -1893,7 +1918,8 @@ export function calculateBoxEstimation(
     pisauPondCost +
     pisauInnerboxCost +
     innerboxCost +
-    logoCost;
+    logoCost +
+    magnetCost;
 
   const hargaModalPerPcs = Math.round(totalBiayaProduksi / safeQty);
   const marginInfo = resolveMarginAndPengali(safeQty);
@@ -1939,6 +1965,9 @@ export function calculateBoxEstimation(
     innerboxCost,
     logoCost,
     logoCostItems,
+    magnetTitik,
+    magnetCost,
+    magnetLine,
     totalBiayaProduksi,
     hargaModalPerPcs,
     marginPercent: marginInfo.marginPercent,
