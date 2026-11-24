@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import {defineConfig} from 'vite';
@@ -7,8 +8,36 @@ import {VitePWA} from 'vite-plugin-pwa';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+// Ambil timestamp commit git terbaru saat build
+function getGitCommitDate(): string {
+  try {
+    // Format: "2026-11-24 22:03:27 +0700"
+    const raw = execSync('git log -1 --format=%ci', { encoding: 'utf-8' }).trim();
+    // Konversi ke objek Date lalu format WIB (UTC+7)
+    const date = new Date(raw);
+    const formatter = new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      weekday: 'long',
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    return formatter.format(date); // e.g. "Senin, 24 November 2026 pukul 22.03"
+  } catch {
+    return 'Tidak diketahui';
+  }
+}
+
+const GIT_COMMIT_DATE = getGitCommitDate();
+
 export default defineConfig(() => {
   return {
+    define: {
+      __GIT_COMMIT_DATE__: JSON.stringify(GIT_COMMIT_DATE),
+    },
     plugins: [
       react(),
       tailwindcss(),

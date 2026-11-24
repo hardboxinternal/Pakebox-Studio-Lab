@@ -2123,6 +2123,11 @@ FYI
             <span>Mode Aplikasi</span>
             <span>Client PWA</span>
           </div>
+          {/* Info Update terakhir dari git commit */}
+          <div className="rounded-md bg-[#0C2017] border border-[#D4AF37]/10 px-2 py-1.5 space-y-0.5">
+            <p className="text-[9px] font-semibold uppercase tracking-widest text-[#D4AF37]/60">Update Terakhir</p>
+            <p className="text-[10px] text-[#A9BEB2] leading-snug">{__GIT_COMMIT_DATE__}</p>
+          </div>
           <div className="flex flex-col">
             <PWAInstallButton />
           </div>
