@@ -742,74 +742,180 @@ export function calculateBoxEstimation(
       (k) => normalizeMaterialKey(k.namaBahan) === normalizeMaterialKey(name)
     );
 
-  const boardBodyPick = pickCheapestMaterialVariant(
-    findBoardVariants(input.bahanBodyName),
-    cutBoardBodyP,
-    cutBoardBodyL,
-    safeQty
-  );
-  const boardTutupPick = pickCheapestMaterialVariant(
-    findBoardVariants(input.bahanTutupName),
-    cutBoardTutupP,
-    cutBoardTutupL,
-    safeQty
-  );
-
   const pondNoteText = isPondActive ? '(Pond +1cm)' : '(Tanpa Pond)';
+
+  // ── KOMBINASI BOARD (body + tutup dalam 1 plano) ──────────────────────────
+  // Jika bahan body === bahan tutup, coba kombinasikan potongan body & tutup
+  // dalam satu lembar plano untuk menghemat material.
+  const boardBodyCandidates = findBoardVariants(input.bahanBodyName);
+  const boardTutupCandidates = findBoardVariants(input.bahanTutupName);
+  const isBoardSameMaterial =
+    normalizeMaterialKey(input.bahanBodyName) ===
+    normalizeMaterialKey(input.bahanTutupName) &&
+    input.bahanBodyName !== '' &&
+    input.bahanTutupName !== '';
 
   let boardBodyCost = 0;
   let boardBodyLine = 'Board body : Tidak menggunakan bahan body';
-  if (boardBodyPick) {
-    boardBodyCost = boardBodyPick.cost;
-    boardBodyLine = `Board body : ${boardBodyPick.item.namaBahan}_${boardBodyPick.sheets} lbr_${boardBodyPick.item.ukuranPlano} cm_potong jadi ${cutBoardBodyP.toFixed(1)} x ${cutBoardBodyL.toFixed(1)} cm (1 plano muat ${boardBodyPick.fit} pcs) ${pondNoteText}`;
-  }
-
   let boardTutupCost = 0;
   let boardTutupLine = 'Board Tutup : Tidak menggunakan bahan tutup';
-  if (boardTutupPick) {
-    boardTutupCost = boardTutupPick.cost;
-    boardTutupLine = `Board Tutup : ${boardTutupPick.item.namaBahan}_${boardTutupPick.sheets} lbr_${boardTutupPick.item.ukuranPlano} cm_potong jadi ${cutBoardTutupP.toFixed(1)} x ${cutBoardTutupL.toFixed(1)} cm (1 plano muat ${boardTutupPick.fit} pcs) ${pondNoteText}`;
+
+  if (isBoardSameMaterial && boardBodyCandidates.length > 0) {
+    // Coba setiap kandidat plano: hitung fit body & fit tutup, ambil min sebagai combo
+    type ComboPick = {
+      item: MaterialItem;
+      fitBody: number;
+      fitTutup: number;
+      comboPerPlano: number;
+      sheets: number;
+      cost: number;
+    };
+    let bestCombo: ComboPick | null = null;
+
+    for (const cand of boardBodyCandidates) {
+      const price = parseRupiahNumber(cand.hargaLembar);
+      if (price === 0 && boardBodyCandidates.length > 1) continue;
+      const dim = parseDimensions(cand.ukuranPlano);
+      const fitBody = calcPlanoFit(dim.w, dim.h, cutBoardBodyP, cutBoardBodyL);
+      const fitTutup = calcPlanoFit(dim.w, dim.h, cutBoardTutupP, cutBoardTutupL);
+      if (fitBody >= 1 && fitTutup >= 1) {
+        const comboPerPlano = Math.min(fitBody, fitTutup);
+        const sheets = Math.ceil(safeQty / comboPerPlano);
+        const cost = sheets * price;
+        if (!bestCombo || cost < bestCombo.cost) {
+          bestCombo = { item: cand, fitBody, fitTutup, comboPerPlano, sheets, cost };
+        }
+      }
+    }
+
+    if (bestCombo) {
+      // Kombinasi berhasil: 1 set biaya untuk body+tutup
+      const comboCost = bestCombo.cost;
+      boardBodyCost = comboCost;
+      boardTutupCost = 0;
+      boardBodyLine = `Board body+tutup (Kombinasi) : ${bestCombo.item.namaBahan}_${bestCombo.sheets} lbr_${bestCombo.item.ukuranPlano} cm_body jadi ${cutBoardBodyP.toFixed(1)}x${cutBoardBodyL.toFixed(1)} cm (muat ${bestCombo.fitBody}) & tutup jadi ${cutBoardTutupP.toFixed(1)}x${cutBoardTutupL.toFixed(1)} cm (muat ${bestCombo.fitTutup}), combo ${bestCombo.comboPerPlano} pcs/plano ${pondNoteText}`;
+      boardTutupLine = `Board Tutup : (digabung dalam kombinasi board body+tutup)`;
+    } else {
+      // Tidak bisa dikombinasikan, hitung terpisah
+      const bodyPick = pickCheapestMaterialVariant(boardBodyCandidates, cutBoardBodyP, cutBoardBodyL, safeQty);
+      const tutupPick = pickCheapestMaterialVariant(boardTutupCandidates, cutBoardTutupP, cutBoardTutupL, safeQty);
+      if (bodyPick) {
+        boardBodyCost = bodyPick.cost;
+        boardBodyLine = `Board body : ${bodyPick.item.namaBahan}_${bodyPick.sheets} lbr_${bodyPick.item.ukuranPlano} cm_potong jadi ${cutBoardBodyP.toFixed(1)} x ${cutBoardBodyL.toFixed(1)} cm (1 plano muat ${bodyPick.fit} pcs) ${pondNoteText}`;
+      }
+      if (tutupPick) {
+        boardTutupCost = tutupPick.cost;
+        boardTutupLine = `Board Tutup : ${tutupPick.item.namaBahan}_${tutupPick.sheets} lbr_${tutupPick.item.ukuranPlano} cm_potong jadi ${cutBoardTutupP.toFixed(1)} x ${cutBoardTutupL.toFixed(1)} cm (1 plano muat ${tutupPick.fit} pcs) ${pondNoteText}`;
+      }
+    }
+  } else {
+    // Bahan berbeda — hitung masing-masing secara terpisah
+    const boardBodyPick = pickCheapestMaterialVariant(boardBodyCandidates, cutBoardBodyP, cutBoardBodyL, safeQty);
+    const boardTutupPick = pickCheapestMaterialVariant(boardTutupCandidates, cutBoardTutupP, cutBoardTutupL, safeQty);
+    if (boardBodyPick) {
+      boardBodyCost = boardBodyPick.cost;
+      boardBodyLine = `Board body : ${boardBodyPick.item.namaBahan}_${boardBodyPick.sheets} lbr_${boardBodyPick.item.ukuranPlano} cm_potong jadi ${cutBoardBodyP.toFixed(1)} x ${cutBoardBodyL.toFixed(1)} cm (1 plano muat ${boardBodyPick.fit} pcs) ${pondNoteText}`;
+    }
+    if (boardTutupPick) {
+      boardTutupCost = boardTutupPick.cost;
+      boardTutupLine = `Board Tutup : ${boardTutupPick.item.namaBahan}_${boardTutupPick.sheets} lbr_${boardTutupPick.item.ukuranPlano} cm_potong jadi ${cutBoardTutupP.toFixed(1)} x ${cutBoardTutupL.toFixed(1)} cm (1 plano muat ${boardTutupPick.fit} pcs) ${pondNoteText}`;
+    }
   }
 
   const boardCost = boardBodyCost + boardTutupCost;
   const boardLabel =
-    boardBodyPick &&
-      boardTutupPick &&
-      normalizeMaterialKey(boardBodyPick.item.namaBahan) !==
-      normalizeMaterialKey(boardTutupPick.item.namaBahan)
-      ? `${boardBodyPick.item.namaBahan} & ${boardTutupPick.item.namaBahan}`
-      : boardBodyPick?.item.namaBahan ||
-      boardTutupPick?.item.namaBahan ||
-      'Karton / Board';
+    normalizeMaterialKey(input.bahanBodyName) !== normalizeMaterialKey(input.bahanTutupName) &&
+    input.bahanBodyName && input.bahanTutupName
+      ? `${input.bahanBodyName} & ${input.bahanTutupName}`
+      : input.bahanBodyName || input.bahanTutupName || 'Karton / Board';
 
-  // Lapisan Dalam (Body & Tutup) - pilih otomatis ukuran plano terbaik
-  const dalamBodyPick = pickCheapestMaterialVariant(
-    findPaperVariants(input.lBodyDalamName),
-    cutDalamBody.p,
-    cutDalamBody.l,
-    safeQty
-  );
-  const dalamTutupPick = pickCheapestMaterialVariant(
-    findPaperVariants(input.lTutupDalamName),
-    cutDalamTutup.p,
-    cutDalamTutup.l,
-    safeQty
-  );
+  // ── KOMBINASI LAPISAN DALAM (body + tutup dalam 1 plano) ─────────────────
+  // Jika bahan lapisan dalam body === tutup, optimasi gabungkan dalam 1 plano.
+  const dalamBodyCandidates = findPaperVariants(input.lBodyDalamName);
+  const dalamTutupCandidates = findPaperVariants(input.lTutupDalamName);
+  const isDalamSameMaterial =
+    normalizeMaterialKey(input.lBodyDalamName) ===
+    normalizeMaterialKey(input.lTutupDalamName) &&
+    input.lBodyDalamName !== '' &&
+    input.lTutupDalamName !== '';
 
   let dalamBodyCost = 0;
   let lapisanDalamBodyLine = 'Lapisan body : Tidak menggunakan lapisan dalam body';
-  if (dalamBodyPick) {
-    dalamBodyCost = dalamBodyPick.cost;
-    const status = dalamBodyPick.isUtuh ? '(Utuh)' : '(Sambung)';
-    lapisanDalamBodyLine = `Lapisan body : ${dalamBodyPick.item.namaBahan}_${dalamBodyPick.sheets} lbr_${dalamBodyPick.item.ukuranPlano} cm_potong jadi ${cutDalamBody.p.toFixed(1)} x ${cutDalamBody.l.toFixed(1)} cm ${status}`;
-  }
-
   let dalamTutupCost = 0;
   let lapisanDalamTutupLine = 'Lapisan tutup : Tidak menggunakan lapisan dalam tutup';
-  if (dalamTutupPick) {
-    dalamTutupCost = dalamTutupPick.cost;
-    const status = dalamTutupPick.isUtuh ? '(Utuh)' : '(Sambung)';
-    lapisanDalamTutupLine = `Lapisan tutup : ${dalamTutupPick.item.namaBahan}_${dalamTutupPick.sheets} lbr_${dalamTutupPick.item.ukuranPlano} cm_potong jadi ${cutDalamTutup.p.toFixed(1)} x ${cutDalamTutup.l.toFixed(1)} cm ${status}`;
+
+  if (isDalamSameMaterial && dalamBodyCandidates.length > 0) {
+    type DalamComboPick = {
+      item: MaterialItem;
+      fitBody: number;
+      fitTutup: number;
+      comboPerPlano: number;
+      sheets: number;
+      cost: number;
+      isUtuhBody: boolean;
+      isUtuhTutup: boolean;
+    };
+    let bestDalamCombo: DalamComboPick | null = null;
+
+    for (const cand of dalamBodyCandidates) {
+      const price = parseRupiahNumber(cand.hargaLembar);
+      if (price === 0 && dalamBodyCandidates.length > 1) continue;
+      const dim = parseDimensions(cand.ukuranPlano);
+      const fitBody = calcPlanoFit(dim.w, dim.h, cutDalamBody.p, cutDalamBody.l);
+      const fitTutup = calcPlanoFit(dim.w, dim.h, cutDalamTutup.p, cutDalamTutup.l);
+      if (fitBody >= 1 && fitTutup >= 1) {
+        const comboPerPlano = Math.min(fitBody, fitTutup);
+        const sheets = Math.ceil(safeQty / comboPerPlano);
+        const cost = sheets * price;
+        if (!bestDalamCombo || cost < bestDalamCombo.cost) {
+          bestDalamCombo = {
+            item: cand,
+            fitBody,
+            fitTutup,
+            comboPerPlano,
+            sheets,
+            cost,
+            isUtuhBody: fitBody >= 1,
+            isUtuhTutup: fitTutup >= 1,
+          };
+        }
+      }
+    }
+
+    if (bestDalamCombo) {
+      dalamBodyCost = bestDalamCombo.cost;
+      dalamTutupCost = 0;
+      lapisanDalamBodyLine = `Lapisan dalam body+tutup (Kombinasi) : ${bestDalamCombo.item.namaBahan}_${bestDalamCombo.sheets} lbr_${bestDalamCombo.item.ukuranPlano} cm_body jadi ${cutDalamBody.p.toFixed(1)}x${cutDalamBody.l.toFixed(1)} cm (muat ${bestDalamCombo.fitBody}) & tutup jadi ${cutDalamTutup.p.toFixed(1)}x${cutDalamTutup.l.toFixed(1)} cm (muat ${bestDalamCombo.fitTutup}), combo ${bestDalamCombo.comboPerPlano} pcs/plano`;
+      lapisanDalamTutupLine = `Lapisan tutup : (digabung dalam kombinasi lapisan dalam body+tutup)`;
+    } else {
+      // Tidak bisa dikombinasikan, hitung terpisah
+      const dBodyPick = pickCheapestMaterialVariant(dalamBodyCandidates, cutDalamBody.p, cutDalamBody.l, safeQty);
+      const dTutupPick = pickCheapestMaterialVariant(dalamTutupCandidates, cutDalamTutup.p, cutDalamTutup.l, safeQty);
+      if (dBodyPick) {
+        dalamBodyCost = dBodyPick.cost;
+        const status = dBodyPick.isUtuh ? '(Utuh)' : '(Sambung)';
+        lapisanDalamBodyLine = `Lapisan body : ${dBodyPick.item.namaBahan}_${dBodyPick.sheets} lbr_${dBodyPick.item.ukuranPlano} cm_potong jadi ${cutDalamBody.p.toFixed(1)} x ${cutDalamBody.l.toFixed(1)} cm ${status}`;
+      }
+      if (dTutupPick) {
+        dalamTutupCost = dTutupPick.cost;
+        const status = dTutupPick.isUtuh ? '(Utuh)' : '(Sambung)';
+        lapisanDalamTutupLine = `Lapisan tutup : ${dTutupPick.item.namaBahan}_${dTutupPick.sheets} lbr_${dTutupPick.item.ukuranPlano} cm_potong jadi ${cutDalamTutup.p.toFixed(1)} x ${cutDalamTutup.l.toFixed(1)} cm ${status}`;
+      }
+    }
+  } else {
+    // Bahan berbeda — hitung masing-masing secara terpisah
+    const dBodyPick = pickCheapestMaterialVariant(dalamBodyCandidates, cutDalamBody.p, cutDalamBody.l, safeQty);
+    const dTutupPick = pickCheapestMaterialVariant(dalamTutupCandidates, cutDalamTutup.p, cutDalamTutup.l, safeQty);
+    if (dBodyPick) {
+      dalamBodyCost = dBodyPick.cost;
+      const status = dBodyPick.isUtuh ? '(Utuh)' : '(Sambung)';
+      lapisanDalamBodyLine = `Lapisan body : ${dBodyPick.item.namaBahan}_${dBodyPick.sheets} lbr_${dBodyPick.item.ukuranPlano} cm_potong jadi ${cutDalamBody.p.toFixed(1)} x ${cutDalamBody.l.toFixed(1)} cm ${status}`;
+    }
+    if (dTutupPick) {
+      dalamTutupCost = dTutupPick.cost;
+      const status = dTutupPick.isUtuh ? '(Utuh)' : '(Sambung)';
+      lapisanDalamTutupLine = `Lapisan tutup : ${dTutupPick.item.namaBahan}_${dTutupPick.sheets} lbr_${dTutupPick.item.ukuranPlano} cm_potong jadi ${cutDalamTutup.p.toFixed(1)} x ${cutDalamTutup.l.toFixed(1)} cm ${status}`;
+    }
   }
 
   const lapisanDalamCost = dalamBodyCost + dalamTutupCost;
