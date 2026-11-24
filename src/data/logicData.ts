@@ -143,33 +143,39 @@ export const INITIAL_LOGIKA_MODEL_DATA: LogicRuleItem[] = [
   },
   {
     id: 'lm-8',
-    namaAturan: 'Kombinasi Potong Board Body + Tutup dalam 1 Plano',
+    namaAturan: 'Kombinasi Potong Board Body + Tutup dalam 1 Plano (Pilih Termurah)',
     kondisiTrigger:
       'Bahan Body = Bahan Tutup (sama) AND fit body ≥ 1 AND fit tutup ≥ 1 dalam 1 plano yang sama',
     rumusTindakan:
-      'combo_per_plano = min(fit_body, fit_tutup); sheets = ceil(Qty / combo_per_plano); Biaya = sheets × harga_plano\n\n' +
-      'Contoh:\n' +
-      '• Body muat 2, Tutup muat 2 → combo 2 pcs/plano → sheets = ceil(Qty/2)\n' +
-      '• Body muat 2, Tutup muat 3 → combo 2 pcs/plano (ambil yang terkecil) → sheets = ceil(Qty/2)\n\n' +
-      'Jika tidak ada plano yang bisa menampung keduanya → hitung terpisah (fallback normal)',
+      'Hitung Opsi A (Kombinasi): combo_per_plano = min(fit_body, fit_tutup); sheets_combo = ceil(Qty / combo_per_plano); biaya_combo = sheets_combo × harga_plano\n\n' +
+      'Hitung Opsi B (Terpisah): sheets_body = ceil(Qty / fit_body); sheets_tutup = ceil(Qty / fit_tutup); biaya_terpisah = (sheets_body × harga) + (sheets_tutup × harga)\n\n' +
+      'Pilih: if biaya_combo < biaya_terpisah → pakai Kombinasi; else → pakai Terpisah\n\n' +
+      'Contoh format output Kombinasi:\n' +
+      'Board body+tutup (Kombinasi) : Karton Grey 30A_12 lbr_74 x 64 cm\n' +
+      '- body jadi 20.0x23.0 cm (muat 9)\n' +
+      '- tutup jadi 11.0x33.0 cm (muat 10), \n' +
+      'combo 9 pcs/plano (Pond +1cm)',
     keterangan:
-      'Aturan optimasi penggunaan bahan karton (Board). Jika bahan body dan tutup sama, sistem mencoba menggabungkan potongan body DAN tutup dalam 1 lembar plano yang sama. Jumlah kombinasi per plano = nilai terkecil antara fit body dan fit tutup. Tujuan: menghemat jumlah lembar, menghindari perhitungan plano ganda, dan meminimalkan sisa material. Jika tidak ada satu pun plano yang bisa menampung kedua potongan sekaligus, sistem fallback ke perhitungan terpisah. Jika bahan body ≠ bahan tutup, otomatis dihitung terpisah.',
-    aksi: 'Hitung Board Body+Tutup dalam 1 Plano (Kombinasi), fallback ke Terpisah jika tidak memungkinkan',
+      'Sistem MEMBANDINGKAN dua opsi: (A) Kombinasi body+tutup dalam 1 plano, dan (B) Terpisah masing-masing plano sendiri. Dipilih opsi yang menghasilkan total biaya lebih murah. Jika tidak ada plano yang bisa menampung keduanya, otomatis pakai Terpisah. Jika bahan body ≠ bahan tutup, otomatis Terpisah.',
+    aksi: 'Bandingkan biaya Kombinasi vs Terpisah, pilih yang termurah',
   },
   {
     id: 'lm-9',
-    namaAturan: 'Kombinasi Potong Lapisan Dalam Body + Tutup dalam 1 Plano',
+    namaAturan: 'Kombinasi Potong Lapisan Dalam Body + Tutup dalam 1 Plano (Pilih Termurah)',
     kondisiTrigger:
       'Lapisan Dalam Body = Lapisan Dalam Tutup (nama bahan sama) AND fit body ≥ 1 AND fit tutup ≥ 1 dalam 1 plano yang sama',
     rumusTindakan:
-      'combo_per_plano = min(fit_body, fit_tutup); sheets = ceil(Qty / combo_per_plano); Biaya = sheets × harga_plano\n\n' +
-      'Contoh:\n' +
-      '• Body muat 2, Tutup muat 2 → combo 2 pcs/plano\n' +
-      '• Body muat 2, Tutup muat 3 → combo 2 pcs/plano (ambil terkecil)\n\n' +
-      'Jika tidak ada plano yang bisa menampung keduanya → hitung terpisah (fallback normal)',
+      'Hitung Opsi A (Kombinasi): combo_per_plano = min(fit_body, fit_tutup); sheets_combo = ceil(Qty / combo_per_plano); biaya_combo = sheets_combo × harga_plano\n\n' +
+      'Hitung Opsi B (Terpisah): sheets_body + sheets_tutup masing-masing\n\n' +
+      'Pilih: if biaya_combo < biaya_terpisah → pakai Kombinasi; else → pakai Terpisah\n\n' +
+      'Contoh format output Kombinasi:\n' +
+      'Lapisan dalam body+tutup (Kombinasi) : Kraft_12 lbr_74 x 64 cm\n' +
+      '- body jadi 20.0x23.0 cm (muat 9)\n' +
+      '- tutup jadi 11.0x33.0 cm (muat 10), \n' +
+      'combo 9 pcs/plano',
     keterangan:
-      'Aturan optimasi penggunaan bahan kertas lapisan dalam (Lapisan Dalam). Berlaku identik dengan aturan Board (lm-8): jika bahan lapisan dalam body dan tutup sama, gabungkan potongan dalam 1 plano. combo_per_plano = min(fit_body, fit_tutup), lalu sheets = ceil(Qty / combo_per_plano). Fallback ke perhitungan terpisah jika tidak ada plano yang bisa menampung keduanya, atau jika bahan berbeda.',
-    aksi: 'Hitung Lapisan Dalam Body+Tutup dalam 1 Plano (Kombinasi), fallback ke Terpisah jika tidak memungkinkan',
+      'Identik dengan lm-8 untuk Board, berlaku pada Lapisan Dalam. Sistem membandingkan biaya kombinasi vs terpisah dan memilih yang lebih murah. Fallback ke Terpisah jika tidak ada plano yang bisa menampung keduanya, atau jika bahan berbeda.',
+    aksi: 'Bandingkan biaya Kombinasi vs Terpisah Lapisan Dalam, pilih termurah',
   },
   {
     id: 'lm-6',

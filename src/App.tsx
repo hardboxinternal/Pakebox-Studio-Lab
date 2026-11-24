@@ -753,6 +753,18 @@ export default function App() {
     return formulaItems.find((m) => m.id === calcModelId) || formulaItems[0];
   }, [formulaItems, calcModelId]);
 
+  const calcLogoSummaryText = useMemo(() => {
+    const activeLogos = calcLogoList.filter((item) => Boolean(item.logoId));
+    if (activeLogos.length === 0) return '-';
+    return activeLogos
+      .map((item) => {
+        const obj = logoItems.find((l) => l.id === item.logoId);
+        const name = obj?.jenisLogo || 'Logo';
+        return item.variant === 'std' ? `${name} Std` : `${name} Custom`;
+      })
+      .join(', ');
+  }, [calcLogoList, logoItems]);
+
   const handleCopySpesifikasi = () => {
     const modelText = selectedModel?.modelBox || calcResult?.modelName || 'Box Custom';
     const ukuranText = `${calcP || '0'} x ${calcL || '0'} x ${calcT || '0'} cm`;
@@ -771,6 +783,7 @@ export default function App() {
       `Bahan luar : ${bahanLuarText}`,
       `Lapisan Dalam : ${lDalamText}`,
       `Lapisan Luar : ${lLuarText}`,
+      `Logo : ${calcLogoSummaryText}`,
     ];
 
     if (isLaminasiShown) {
@@ -3019,6 +3032,14 @@ FYI
                             </span>
                           </div>
 
+                          {/* Logo : pilihan kolom foil std / embos */}
+                          <div>
+                            <span className="text-[#8FA599]">Logo :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {calcLogoSummaryText}
+                            </span>
+                          </div>
+
                           {/* Laminasi doff / glossy: jika dipilih bahan AP 150 gr selain itu ga muncul */}
                           {isLaminasiShown && (
                             <div>
@@ -3288,30 +3309,30 @@ FYI
 
                       <div className="space-y-0.5">
                         <div className="font-semibold text-[11px] text-[#F3D77D]">Karton / Board</div>
-                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6]">
+                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6] whitespace-pre-line">
                           {calcResult.boardBodyLine}
                         </p>
-                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6]">
+                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6] whitespace-pre-line">
                           {calcResult.boardTutupLine}
                         </p>
                       </div>
 
                       <div className="space-y-0.5">
                         <div className="font-semibold text-[11px] text-[#F3D77D]">Lapisan Dalam</div>
-                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6]">
+                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6] whitespace-pre-line">
                           {calcResult.lapisanDalamBodyLine}
                         </p>
-                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6]">
+                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6] whitespace-pre-line">
                           {calcResult.lapisanDalamTutupLine}
                         </p>
                       </div>
 
                       <div className="space-y-0.5">
                         <div className="font-semibold text-[11px] text-[#F3D77D]">Lapisan Luar</div>
-                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6]">
+                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6] whitespace-pre-line">
                           {calcResult.lapisanLuarBodyLine}
                         </p>
-                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6]">
+                        <p className="font-mono-tabular text-[11px] leading-relaxed text-[#E2ECE6] whitespace-pre-line">
                           {calcResult.lapisanLuarTutupLine}
                         </p>
                       </div>
