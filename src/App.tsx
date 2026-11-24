@@ -90,6 +90,7 @@ import {
   calculateBoxEstimation,
   evaluateLogoFormula,
   getUniqueMaterialNames,
+  isLaminasiEligibleMaterial,
   normalizeMaterialKey,
   parseRupiahNumber,
 } from './utils/boxCalculator';
@@ -604,6 +605,7 @@ export default function App() {
   const [calcError, setCalcError] = useState<string>('');
   const [calcResult, setCalcResult] = useState<BoxCalculationResult | null>(null);
   const [selectedPrintIndex, setSelectedPrintIndex] = useState<number | undefined>(undefined);
+  const [isCopiedSpesifikasi, setIsCopiedSpesifikasi] = useState<boolean>(false);
 
   const uniqueBahanDasarNames = useMemo(
     () => getUniqueMaterialNames(bahanDasarItems),
@@ -739,6 +741,84 @@ export default function App() {
     logikaModelItems,
     logikaProsesItems,
   ]);
+
+  const isLaminasiShown = useMemo(() => {
+    if (calcResult) {
+      return calcResult.isLaminasiActive;
+    }
+    return isLaminasiEligibleMaterial(calcLTutupLuarName) || isLaminasiEligibleMaterial(calcLBodyLuarName);
+  }, [calcResult, calcLTutupLuarName, calcLBodyLuarName]);
+
+  const selectedModel = useMemo(() => {
+    return formulaItems.find((m) => m.id === calcModelId) || formulaItems[0];
+  }, [formulaItems, calcModelId]);
+
+  const handleCopySpesifikasi = () => {
+    const modelText = selectedModel?.modelBox || calcResult?.modelName || 'Box Custom';
+    const ukuranText = `${calcP || '0'} x ${calcL || '0'} x ${calcT || '0'} cm`;
+    const bahanBodyText = calcBahanBodyName || '-';
+    const bahanLuarText = calcBahanTutupName || calcBahanBodyName || '-';
+    const lDalamText = calcLBodyDalamName || '-';
+    const lLuarText = calcLTutupLuarName || calcLBodyLuarName || '-';
+    const qtyText = `${calcQty || '0'} pcs`;
+    const hargaText = calcResult ? `${formatRupiah(calcResult.hargaJualPerPcs)}/pcs` : '-';
+
+    const lines: string[] = [
+      'Hardbox',
+      `Model : ${modelText}`,
+      `Ukuran : ${ukuranText}`,
+      `Bahan body : ${bahanBodyText}`,
+      `Bahan luar : ${bahanLuarText}`,
+      `Lapisan Dalam : ${lDalamText}`,
+      `Lapisan Luar : ${lLuarText}`,
+    ];
+
+    if (isLaminasiShown) {
+      lines.push('Laminasi doff / glossy');
+    }
+
+    if (calcInnerboxList.filter(Boolean).length === 0) {
+      lines.push('Tanpa skat');
+    } else {
+      lines.push('Innerbox :');
+      calcInnerboxList.filter(Boolean).forEach((ib) => {
+        lines.push(`- ${ib}`);
+      });
+    }
+
+    if (calcMagnetTitik > 0) {
+      lines.push(`Magnet : ${calcMagnetTitik} Titik`);
+    }
+
+    lines.push(`Qty : ${qtyText}`);
+    lines.push('');
+    lines.push(hargaText);
+
+    const textToCopy = lines.join('\n');
+
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        setIsCopiedSpesifikasi(true);
+        setTimeout(() => setIsCopiedSpesifikasi(false), 2000);
+      });
+    } else {
+      const textArea = document.createElement('textarea');
+      textArea.value = textToCopy;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-9999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        setIsCopiedSpesifikasi(true);
+        setTimeout(() => setIsCopiedSpesifikasi(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
 
   const handleResetCalculatorInputs = () => {
     setCalcModelId(formulaItems[0]?.id || '');
@@ -2859,6 +2939,258 @@ FYI
                       <Calculator className="h-4 w-4 stroke-[2.5]" />
                       <span>Hitung Harga</span>
                     </button>
+                  </div>
+
+                  {/* 2 Card di Bawah Tombol Hitung Harga: 1. Rincian Spesifikasi & 2. Informasi Modal Box */}
+                  <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    {/* 1. Card Rincian Spesifikasi */}
+                    <div className="rounded-xl border border-[#D4AF37]/30 bg-[#081610] p-3.5 shadow-md flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between pb-2 border-b border-[#D4AF37]/15">
+                          <div className="flex items-center gap-1.5">
+                            <Box className="h-4 w-4 text-[#D4AF37] shrink-0" />
+                            <h3 className="text-xs font-bold uppercase tracking-wider text-[#E5C158]">
+                              Rincian Spesifikasi
+                            </h3>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleCopySpesifikasi}
+                            className="inline-flex items-center gap-1 rounded bg-[#122D22] border border-[#D4AF37]/30 px-2.5 py-1 text-[11px] font-semibold text-[#F3D77D] hover:bg-[#1B3E30] hover:text-[#FFFFFF] transition-colors cursor-pointer"
+                            title="Salin format spesifikasi penawaran"
+                          >
+                            {isCopiedSpesifikasi ? (
+                              <>
+                                <Check className="h-3 w-3 text-emerald-400 stroke-[2.5]" />
+                                <span className="text-emerald-400">Tersalin</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3 text-[#D4AF37]" />
+                                <span>Salin</span>
+                              </>
+                            )}
+                          </button>
+                        </div>
+
+                        <div className="mt-2.5 space-y-1.5 text-xs font-mono-tabular leading-relaxed">
+                          <div className="font-bold text-[#F3D77D] text-sm tracking-wide">
+                            Hardbox
+                          </div>
+                          <div>
+                            <span className="text-[#8FA599]">Model :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {selectedModel?.modelBox || calcResult?.modelName || 'Box Custom'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[#8FA599]">Ukuran :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {calcP || '0'} x {calcL || '0'} x {calcT || '0'} cm
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[#8FA599]">Bahan body :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {calcBahanBodyName || '-'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[#8FA599]">Bahan luar :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {calcBahanTutupName || calcBahanBodyName || '-'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[#8FA599]">Lapisan Dalam :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {calcLBodyDalamName || '-'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[#8FA599]">Lapisan Luar :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {calcLTutupLuarName || calcLBodyLuarName || '-'}
+                            </span>
+                          </div>
+
+                          {/* Laminasi doff / glossy: jika dipilih bahan AP 150 gr selain itu ga muncul */}
+                          {isLaminasiShown && (
+                            <div>
+                              <span className="text-[#8FA599]">Laminasi doff / glossy :</span>{' '}
+                              <span className="font-semibold text-[#F4F1EA]">Doff / Glossy</span>
+                            </div>
+                          )}
+
+                          {/* Tanpa skat : jika tidak diisi innerbox, jika ada list data inner */}
+                          {calcInnerboxList.filter(Boolean).length === 0 ? (
+                            <div>
+                              <span className="text-[#8FA599]">Tanpa skat</span>
+                            </div>
+                          ) : (
+                            <div>
+                              <span className="text-[#8FA599]">Innerbox :</span>
+                              <ul className="pl-3 list-disc space-y-0.5 text-[#F4F1EA]">
+                                {calcInnerboxList.filter(Boolean).map((ib, idx) => (
+                                  <li key={idx} className="font-semibold">
+                                    {ib}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Magnet jika ada */}
+                          {calcMagnetTitik > 0 && (
+                            <div>
+                              <span className="text-[#8FA599]">Magnet :</span>{' '}
+                              <span className="font-semibold text-[#F4F1EA]">
+                                {calcMagnetTitik} Titik
+                              </span>
+                            </div>
+                          )}
+
+                          <div>
+                            <span className="text-[#8FA599]">Qty :</span>{' '}
+                            <span className="font-semibold text-[#F4F1EA]">
+                              {calcQty || '0'} pcs
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 mt-3 border-t border-[#D4AF37]/20 flex items-baseline justify-between">
+                        <span className="text-[11px] font-medium text-[#8FA599]">
+                          Harga Rekomendasi:
+                        </span>
+                        <div className="text-right">
+                          <div className="text-base sm:text-lg font-bold font-mono-tabular text-emerald-400">
+                            {calcResult ? `${formatRupiah(calcResult.hargaJualPerPcs)}/pcs` : '—'}
+                          </div>
+                          {calcResult && (
+                            <span className="text-[10px] text-[#8FA599] block">
+                              Total Jual: {formatRupiah(calcResult.totalHargaJual)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Card Informasi Modal Box */}
+                    <div className="rounded-xl border border-[#D4AF37]/30 bg-[#081610] p-3.5 shadow-md flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center gap-1.5 pb-2 border-b border-[#D4AF37]/15">
+                          <Tag className="h-4 w-4 text-[#D4AF37] shrink-0" />
+                          <h3 className="text-xs font-bold uppercase tracking-wider text-[#E5C158]">
+                            Informasi Modal Box
+                          </h3>
+                        </div>
+
+                        <div className="mt-2.5 space-y-2 font-mono-tabular text-xs">
+                          {/* Total Modal per pcs */}
+                          <div className="rounded-lg bg-[#0C2017] border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
+                            <div>
+                              <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
+                                Total Modal / Pcs
+                              </span>
+                              <span className="text-[11px] text-[#B8C7BE]">
+                                Biaya Pokok (HPP)
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm sm:text-base font-bold text-[#F3D77D]">
+                                {calcResult ? formatRupiah(calcResult.hargaModalPerPcs) : '—'}
+                              </span>
+                              {calcResult && (
+                                <span className="text-[10px] text-[#8FA599] block">
+                                  Total: {formatRupiah(calcResult.totalBiayaProduksi)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Harga Jual per pcs */}
+                          <div className="rounded-lg bg-[#0C2017] border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
+                            <div>
+                              <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
+                                Harga Jual / Pcs
+                              </span>
+                              <span className="text-[11px] text-[#B8C7BE]">
+                                Harga Rekomendasi
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm sm:text-base font-bold text-emerald-400">
+                                {calcResult ? formatRupiah(calcResult.hargaJualPerPcs) : '—'}
+                              </span>
+                              {calcResult && (
+                                <span className="text-[10px] text-[#8FA599] block">
+                                  Total: {formatRupiah(calcResult.totalHargaJual)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Nominal Margin */}
+                          <div className="rounded-lg bg-[#0C2017] border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
+                            <div>
+                              <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
+                                Nominal Margin
+                              </span>
+                              <span className="text-[11px] text-[#B8C7BE]">
+                                Keuntungan Bersih
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm sm:text-base font-bold text-[#E5C158]">
+                                {calcResult
+                                  ? `${formatRupiah(calcResult.hargaJualPerPcs - calcResult.hargaModalPerPcs)} / pcs`
+                                  : '—'}
+                              </span>
+                              {calcResult && (
+                                <span className="text-[10px] text-[#8FA599] block">
+                                  Total: {formatRupiah(calcResult.totalHargaJual - calcResult.totalBiayaProduksi)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Persen Margin */}
+                          <div className="rounded-lg bg-[#0C2017] border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
+                            <div>
+                              <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
+                                Persen Margin
+                              </span>
+                              <span className="text-[11px] text-[#B8C7BE]">
+                                {calcResult ? calcResult.marginTierLabel : 'Logika Margin Qty'}
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm sm:text-base font-bold text-[#F3D77D]">
+                                {calcResult ? `${calcResult.marginPercent}%` : '—'}
+                              </span>
+                              {calcResult && (
+                                <span className="text-[10px] text-[#8FA599] block">
+                                  Pengali: {calcResult.pengaliHargaJual.toFixed(2)}x
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 mt-2 border-t border-[#D4AF37]/20 text-[10px] text-[#8FA599] text-center">
+                        {calcResult ? (
+                          <span>
+                            Perhitungan margin otomatis untuk pesanan {calcResult.qty} pcs
+                          </span>
+                        ) : (
+                          <span>
+                            Klik tombol Hitung Harga untuk melihat nominal dan persen margin
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </section>
