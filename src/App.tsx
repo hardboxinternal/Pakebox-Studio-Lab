@@ -366,7 +366,14 @@ export default function App() {
       const saved = localStorage.getItem(STORAGE_KEY_INNERBOX);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Migrasi otomatis jika harga lama Busa Angin masih Rp 58.000
+          return parsed.map((item: MaterialItem) =>
+            item.namaBahan.toLowerCase() === 'busa angin' && item.hargaLembar === 'Rp 58.000'
+              ? { ...item, hargaLembar: 'Rp 75.000' }
+              : item
+          );
+        }
       }
     } catch {
       // Fallback
@@ -3113,71 +3120,66 @@ FYI
                         </div>
 
                         <div className="mt-2.5 space-y-2 font-mono-tabular text-xs">
-                          {/* Total Modal per pcs */}
-                          <div className="rounded-lg bg-[#0C2017] border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
+                          {/* 1. Harga Jual per pcs (Posisi pertama, warna lebih mencolok) */}
+                          <div className="rounded-lg bg-[#0E281D] border border-emerald-500/40 p-2.5 flex items-center justify-between shadow-xs">
                             <div>
-                              <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
-                                Total Modal / Pcs
-                              </span>
-                              <span className="text-[11px] text-[#B8C7BE]">
-                                Biaya Pokok (HPP)
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-sm sm:text-base font-bold text-[#F3D77D]">
-                                {calcResult ? formatRupiah(calcResult.hargaModalPerPcs) : '—'}
-                              </span>
-                              {calcResult && (
-                                <span className="text-[10px] text-[#8FA599] block">
-                                  Total: {formatRupiah(calcResult.totalBiayaProduksi)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Harga Jual per pcs */}
-                          <div className="rounded-lg bg-[#0C2017] border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
-                            <div>
-                              <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
+                              <span className="block text-[10px] text-emerald-400 uppercase font-bold tracking-wide">
                                 Harga Jual / Pcs
                               </span>
-                              <span className="text-[11px] text-[#B8C7BE]">
+                              <span className="text-[11px] text-[#A9BEB2]">
                                 Harga Rekomendasi
                               </span>
                             </div>
                             <div className="text-right">
-                              <span className="text-sm sm:text-base font-bold text-emerald-400">
+                              <span className="text-base sm:text-lg font-extrabold text-emerald-300">
                                 {calcResult ? formatRupiah(calcResult.hargaJualPerPcs) : '—'}
                               </span>
                               {calcResult && (
-                                <span className="text-[10px] text-[#8FA599] block">
+                                <span className="text-[10px] text-emerald-400/80 block font-medium">
                                   Total: {formatRupiah(calcResult.totalHargaJual)}
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Nominal Margin */}
+                          {/* 2. Total Modal per pcs (Posisi kedua, warna lebih tenang) */}
+                          <div className="rounded-lg bg-[#0C2017]/70 border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
+                            <div>
+                              <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
+                                Total Modal / Pcs
+                              </span>
+                              <span className="text-[11px] text-[#718579]">
+                                Biaya Pokok (HPP)
+                              </span>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-sm sm:text-base font-semibold text-[#A9BEB2]">
+                                {calcResult ? formatRupiah(calcResult.hargaModalPerPcs) : '—'}
+                              </span>
+                              {calcResult && (
+                                <span className="text-[10px] text-[#6B8577] block">
+                                  Total: {formatRupiah(calcResult.totalBiayaProduksi)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 3. Nominal Margin (Langsung total nominal, tidak per pcs) */}
                           <div className="rounded-lg bg-[#0C2017] border border-[#D4AF37]/15 p-2.5 flex items-center justify-between">
                             <div>
                               <span className="block text-[10px] text-[#8FA599] uppercase font-semibold">
                                 Nominal Margin
                               </span>
                               <span className="text-[11px] text-[#B8C7BE]">
-                                Keuntungan Bersih
+                                Keuntungan Bersih (Total)
                               </span>
                             </div>
                             <div className="text-right">
                               <span className="text-sm sm:text-base font-bold text-[#E5C158]">
                                 {calcResult
-                                  ? `${formatRupiah(calcResult.hargaJualPerPcs - calcResult.hargaModalPerPcs)} / pcs`
+                                  ? formatRupiah(calcResult.totalHargaJual - calcResult.totalBiayaProduksi)
                                   : '—'}
                               </span>
-                              {calcResult && (
-                                <span className="text-[10px] text-[#8FA599] block">
-                                  Total: {formatRupiah(calcResult.totalHargaJual - calcResult.totalBiayaProduksi)}
-                                </span>
-                              )}
                             </div>
                           </div>
 

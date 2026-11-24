@@ -85,6 +85,6 @@ export const INITIAL_INNERBOX_DATA: MaterialItem[] = [
     id: 'ib-2',
     namaBahan: 'Busa Angin',
     ukuranPlano: '150 x 110',
-    hargaLembar: 'Rp 58.000',
+    hargaLembar: 'Rp 75.000',
   },
 ];
