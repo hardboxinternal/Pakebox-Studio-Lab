@@ -3518,44 +3518,6 @@ FYI
                         })}
                       </div>
                     </div>
-
-                    {/* 4. Modal Box & Estimasi Harga Jual (Logika Harga) */}
-                    <div className="rounded-lg border border-[#D4AF37]/40 bg-[#122D22] p-3 space-y-2">
-                      <div className="space-y-0.5">
-                        <h3 className="font-bold text-[#E5C158] text-xs">Modal Box</h3>
-                        <p className="text-[11px] text-[#B8C7BE]">
-                          Harga Modal = Total modal dibagi qty ({formatRupiah(calcResult.totalBiayaProduksi)} ÷ {calcResult.qty} pcs)
-                        </p>
-                        <div className="pt-0.5 font-mono-tabular text-base sm:text-lg font-bold text-[#F3D77D]">
-                          {formatRupiah(calcResult.hargaModalPerPcs)}{' '}
-                          <span className="text-[11px] font-normal text-[#94A89B]">/ pcs</span>
-                        </div>
-                      </div>
-
-                      <div className="border-t border-[#D4AF37]/25 pt-2 space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold text-[#E5C158]">
-                            Harga Jual (Logika Margin):
-                          </span>
-                          <span className="rounded border border-[#D4AF37]/30 bg-[#081610] px-1.5 py-0.2 font-mono-tabular text-[10px] text-[#F3D77D]">
-                            {calcResult.marginTierLabel}
-                          </span>
-                        </div>
-                        <p className="font-mono-tabular text-[11px] text-[#B8C7BE]">
-                          Margin <strong className="text-[#F4F1EA]">{calcResult.marginPercent}%</strong> ➔ Pengali{' '}
-                          <strong className="text-[#E5C158]">{calcResult.pengaliHargaJual.toFixed(2)}</strong> ({formatRupiah(calcResult.hargaModalPerPcs)} x {calcResult.pengaliHargaJual.toFixed(2)})
-                        </p>
-                        <div className="pt-0.5 flex items-baseline justify-between">
-                          <div className="font-mono-tabular text-base sm:text-lg font-bold text-emerald-400">
-                            {formatRupiah(calcResult.hargaJualPerPcs)}{' '}
-                            <span className="text-[11px] font-normal text-[#94A89B]">/ pcs</span>
-                          </div>
-                          <div className="font-mono-tabular text-[11px] text-[#94A89B]">
-                            Total Jual: <strong className="text-[#F4F1EA]">{formatRupiah(calcResult.totalHargaJual)}</strong>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 )}
               </section>

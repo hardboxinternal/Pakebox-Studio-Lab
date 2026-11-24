@@ -142,6 +142,36 @@ export const INITIAL_LOGIKA_MODEL_DATA: LogicRuleItem[] = [
     aksi: 'Hitung Biaya Magnet & Masukkan ke Modal',
   },
   {
+    id: 'lm-8',
+    namaAturan: 'Kombinasi Potong Board Body + Tutup dalam 1 Plano',
+    kondisiTrigger:
+      'Bahan Body = Bahan Tutup (sama) AND fit body ≥ 1 AND fit tutup ≥ 1 dalam 1 plano yang sama',
+    rumusTindakan:
+      'combo_per_plano = min(fit_body, fit_tutup); sheets = ceil(Qty / combo_per_plano); Biaya = sheets × harga_plano\n\n' +
+      'Contoh:\n' +
+      '• Body muat 2, Tutup muat 2 → combo 2 pcs/plano → sheets = ceil(Qty/2)\n' +
+      '• Body muat 2, Tutup muat 3 → combo 2 pcs/plano (ambil yang terkecil) → sheets = ceil(Qty/2)\n\n' +
+      'Jika tidak ada plano yang bisa menampung keduanya → hitung terpisah (fallback normal)',
+    keterangan:
+      'Aturan optimasi penggunaan bahan karton (Board). Jika bahan body dan tutup sama, sistem mencoba menggabungkan potongan body DAN tutup dalam 1 lembar plano yang sama. Jumlah kombinasi per plano = nilai terkecil antara fit body dan fit tutup. Tujuan: menghemat jumlah lembar, menghindari perhitungan plano ganda, dan meminimalkan sisa material. Jika tidak ada satu pun plano yang bisa menampung kedua potongan sekaligus, sistem fallback ke perhitungan terpisah. Jika bahan body ≠ bahan tutup, otomatis dihitung terpisah.',
+    aksi: 'Hitung Board Body+Tutup dalam 1 Plano (Kombinasi), fallback ke Terpisah jika tidak memungkinkan',
+  },
+  {
+    id: 'lm-9',
+    namaAturan: 'Kombinasi Potong Lapisan Dalam Body + Tutup dalam 1 Plano',
+    kondisiTrigger:
+      'Lapisan Dalam Body = Lapisan Dalam Tutup (nama bahan sama) AND fit body ≥ 1 AND fit tutup ≥ 1 dalam 1 plano yang sama',
+    rumusTindakan:
+      'combo_per_plano = min(fit_body, fit_tutup); sheets = ceil(Qty / combo_per_plano); Biaya = sheets × harga_plano\n\n' +
+      'Contoh:\n' +
+      '• Body muat 2, Tutup muat 2 → combo 2 pcs/plano\n' +
+      '• Body muat 2, Tutup muat 3 → combo 2 pcs/plano (ambil terkecil)\n\n' +
+      'Jika tidak ada plano yang bisa menampung keduanya → hitung terpisah (fallback normal)',
+    keterangan:
+      'Aturan optimasi penggunaan bahan kertas lapisan dalam (Lapisan Dalam). Berlaku identik dengan aturan Board (lm-8): jika bahan lapisan dalam body dan tutup sama, gabungkan potongan dalam 1 plano. combo_per_plano = min(fit_body, fit_tutup), lalu sheets = ceil(Qty / combo_per_plano). Fallback ke perhitungan terpisah jika tidak ada plano yang bisa menampung keduanya, atau jika bahan berbeda.',
+    aksi: 'Hitung Lapisan Dalam Body+Tutup dalam 1 Plano (Kombinasi), fallback ke Terpisah jika tidak memungkinkan',
+  },
+  {
     id: 'lm-6',
     namaAturan: 'Rumus Sambungan Khusus (Magnet Model)',
     kondisiTrigger:
